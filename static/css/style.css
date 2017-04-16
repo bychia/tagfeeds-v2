@@ -1,0 +1,99 @@
+.whitebg{
+  background: #fff !important;
+}
+
+.greybg{
+  background: #efefef;
+}
+
+.layerSelected{
+  background: #efefef;
+}
+
+.layer{
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tfHighlight {
+  border-top-right-radius: 10px !important;
+  background-color: #0f0 !important;
+  color: #000 !important;
+  padding: 5px !important;
+  z-index: 999;
+}
+
+.padding {
+  padding: 1rem;
+}
+
+.toolContent>div{
+  overflow-y: scroll;
+  overflow-x: hidden;
+  background: white;
+}
+
+.no-gutters {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+input[name="inputAttrName"]{
+  height: 3rem;
+}
+
+/* Override bootstrap CSS */
+.btn {
+  padding: 6px 10px !important;
+  font-size: 10px !important;
+}
+
+.well {
+  margin-bottom: 0 !important;
+  min-height: 0 !important;
+  padding: 1rem !important;
+}
+
+.text-toogle[aria-expanded=false] .text-expanded {
+  display: none;
+}
+.text-toogle[aria-expanded=true] .text-collapsed {
+  display: none;
+}
+/*
+input[name="attrName"]{
+  width: 50%;
+}*/
+
+/*span[name="spanAttrName"] {
+  display: block;
+  overflow: hidden;
+  padding: 0 1px;
+}*/
+.maxWidth {
+  width: 100%;
+}
+
+input[name="tfsearch"] {
+  height: 2.5rem;
+  font-size: 1.8rem;
+  display: inline-block;
+  font-weight: 200;
+  border: none;
+  outline: none;
+  color: #555;
+  padding-top: 2rem;
+  padding-bottom: 2.5rem;
+  padding-left: 2.5rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #fff;
+  width: 100%;
+  cursor: pointer;
+}
+
+input[name="tfsearch"]:focus {
+  z-index: 1;
+  cursor: text;
+}
