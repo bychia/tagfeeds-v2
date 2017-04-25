@@ -15,11 +15,19 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
-.tfHighlight {
+.tfMouseover {
   border-top-right-radius: 10px !important;
-  background-color: #0f0 !important;
-  color: #000 !important;
-  padding: 5px !important;
+  border-bottom-left-radius: 10px !important;
+  opacity: 0.2 !important;
+  background-color: slategray !important;
+  z-index: 999;
+}
+
+.tfClicked {
+  border-top-right-radius: 10px !important;
+  border-bottom-left-radius: 10px !important;
+  opacity: 0.85 !important;
+  background-color: slategray !important;
   z-index: 999;
 }
 
@@ -42,6 +50,15 @@ input[name="inputAttrName"]{
   height: 3rem;
 }
 
+/* Override golden layout CSS */
+.lm_drag_handle{
+  cursor: move !important;
+}
+
+.lm_content{
+  background: #fff !important;
+}
+
 /* Override bootstrap CSS */
 .btn {
   padding: 6px 10px !important;
@@ -52,6 +69,10 @@ input[name="inputAttrName"]{
   margin-bottom: 0 !important;
   min-height: 0 !important;
   padding: 1rem !important;
+}
+
+.label-space {
+  margin-right: .5rem;
 }
 
 .text-toogle[aria-expanded=false] .text-expanded {

@@ -12,9 +12,9 @@ var config = {
     showCloseIcon: false
   },
   dimensions: {
-    borderWidth: 8,
-    minItemHeight: 6,
-    minItemWidth: 6,
+    borderWidth: 10,
+    minItemHeight: 8,
+    minItemWidth: 8,
     headerHeight: 8,
     dragProxyWidth: 300,
     dragProxyHeight: 200
@@ -32,7 +32,7 @@ var config = {
         component: 'WebContent',
         title: 'Web Content',
         props: { hostname: 'http://localhost:3000/proxy',
-          url: 'http://www.autodesk.com/' },
+          url: 'http://www.bbc.com/' },
         width: 55
       }, {
         type: 'column',
@@ -69,13 +69,13 @@ var WebContent = React.createClass({
     this.props.glEventHub.off('alertUrlUpdate', this.refresh);
   },
   refresh: function (url) {
-    url = this.cleanURLSchema(url);
+    url = this.suggestUrl(url);
     if (this.state.url != url) {
       this.setState({ url: url });
       $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url);
     }
   },
-  cleanURLSchema: function (url) {
+  suggestUrl: function (url) {
     var prefix = "";
     if (!url.startsWith("http")) {
       prefix = "http://";
@@ -122,18 +122,14 @@ var ToolAttr = React.createClass({
   getInitialState: function () {
     return {
       keyIndex: this.props.keyIndex,
-      controlOptions: [{ key: '0', value: "String" }, { key: '1', value: 'Array' }]
+      name: this.props.name,
+      cssNames: this.props.cssNames
     };
   },
   addToSelection: function () {
     // Change CSS of the Div in selection
     var node = ReactDOM.findDOMNode(this);
     var nodeClassList = node.classList;
-    // check if current node is selected
-    // if(nodeClassList.contains("layerSelected")){
-    //   nodeClassList.remove("layerSelected");
-    //   nodeClassList.add("layer");
-    // }else{
     var parentNode = node.parentNode;
     var parentNodeChildren = parentNode.children;
     for (var i = 0; i < parentNodeChildren.length; i++) {
@@ -147,7 +143,6 @@ var ToolAttr = React.createClass({
       }
     }
     this.props.glEventHub.emit('alertSelectAttr', this.state.keyIndex);
-    // }
   },
   setDowndownItem: function (event) {
     var keyIndex = this.props.keyIndex;
@@ -156,6 +151,8 @@ var ToolAttr = React.createClass({
     btnDropdown.html(selection + ' <span class="caret"></span>');
   },
   render: function () {
+    var cssNames = this.state.cssNames.split(" ");
+
     return React.createElement(
       'div',
       { className: 'row padding layer', name: 'divAttr', key: "divAttr" + this.state.keyIndex, onClick: this.addToSelection },
@@ -171,53 +168,25 @@ var ToolAttr = React.createClass({
       ),
       React.createElement(
         'div',
-        { className: 'col-md-8 col-sm-11' },
-        React.createElement('input', { type: 'text', name: 'inputAttrName', className: 'maxWidth', key: "inputAttrName" + this.state.keyIndex })
+        { className: 'col-md-11 col-sm-11' },
+        React.createElement('input', { type: 'text', name: 'inputAttrName', className: 'maxWidth', key: "inputAttrName" + this.state.keyIndex, defaultValue: this.state.name })
       ),
       React.createElement(
         'div',
-        { className: 'col-md-3 col-sm-12' },
+        { className: 'col-md-12 col-sd-12 collapse', id: "cssSelector" + this.state.keyIndex + "Target" },
         React.createElement(
           'div',
-          { className: 'dropdown', key: "dropdown" + this.state.keyIndex, id: "dropdown" + this.state.keyIndex },
+          { className: 'col-md-12 col-sd-12 well' },
           React.createElement(
-            'button',
-            { className: 'btn btn-default dropdown-toggle maxWidth', type: 'button', id: "dropdown-btn" + this.state.keyIndex, 'data-toggle': 'dropdown', 'aria-haspopup': 'true', 'aria-expanded': 'true' },
-            'Select one ',
-            React.createElement('span', { className: 'caret' })
-          ),
-          React.createElement(
-            'ul',
-            { className: 'dropdown-menu dropdown-menu-right', 'aria-labelledby': 'dropdown-menu', key: "dropdown-menu" + this.state.keyIndex },
-            this.state.controlOptions.map(function (data, key) {
+            'div',
+            null,
+            cssNames.map(function (cssName, index) {
               return React.createElement(
-                'li',
-                { key: key, value: data.key, onClick: this.setDowndownItem },
-                React.createElement(
-                  'a',
-                  { href: '#', className: 'label ' },
-                  data.value
-                )
+                'span',
+                { className: 'label label-success label-space', key: "cssLabel_" + index },
+                cssName
               );
-            }, this)
-          )
-        )
-      ),
-      React.createElement(
-        'div',
-        { className: 'col-md-12 collapse', id: "cssSelector" + this.state.keyIndex + "Target" },
-        React.createElement(
-          'div',
-          { className: 'well' },
-          React.createElement(
-            'span',
-            { className: 'label label-default' },
-            'Default'
-          ),
-          React.createElement(
-            'span',
-            { className: 'label label-primary' },
-            'Primary'
+            })
           )
         )
       )
@@ -250,22 +219,23 @@ var ToolAttrList = React.createClass({
 
   getInitialState: function () {
     var eventHub = this.props.glEventHub;
-    var index = 0;
-    var defaultToolAttr = React.createElement(ToolAttr, { key: index, keyIndex: index, glEventHub: eventHub });
+    var index = -1;
     return {
       selectedAttr: null,
-      attrList: [defaultToolAttr]
+      attrList: []
     };
   },
   componentWillMount: function () {
     this.props.glEventHub.on('alertAddAttr', this.actionAddAttr);
     this.props.glEventHub.on('alertSelectAttr', this.actionSelectAttr);
     this.props.glEventHub.on('alertRemoveAttr', this.actionRemoveAttr);
+    this.props.glEventHub.on('alertRemoveSelectedAttr', this.actionRemoveSelectedAttr);
   },
   componentWillUnmount: function () {
     this.props.glEventHub.off('alertAddAttr', this.actionAddAttr);
     this.props.glEventHub.off('alertSelectAttr', this.actionSelectAttr);
     this.props.glEventHub.off('alertRemoveAttr', this.actionRemoveAttr);
+    this.props.glEventHub.off('alertRemoveSelectedAttr', this.actionRemoveSelectedAttr);
   },
   getLastKeyIndex: function (list) {
     var listLength = list.length;
@@ -289,25 +259,37 @@ var ToolAttrList = React.createClass({
       }
     }
   },
-  actionAddAttr: function (index) {
+  actionAddAttr: function (attrName, cssNames) {
     var eventHub = this.props.glEventHub;
     var attrList = this.state.attrList;
     var nextKeyIndex = this.getLastKeyIndex(attrList) + 1;
-    attrList.push(React.createElement(ToolAttr, { key: nextKeyIndex, keyIndex: nextKeyIndex, glEventHub: eventHub }));
+    attrList.push(React.createElement(ToolAttr, { name: attrName, cssNames: cssNames, key: nextKeyIndex, keyIndex: nextKeyIndex, glEventHub: eventHub }));
     this.setState({ attrList: attrList });
   },
-  actionRemoveAttr: function (index) {
+  actionRemoveAttr: function (attrName) {
+    var attrList = this.state.attrList;
+    var newAttrList = [];
+    for (var i = 0; i < attrList.length; i++) {
+      var attr = attrList[i];
+      if (attr.props.name != attrName) {
+        newAttrList.push(attr);
+      }
+    }
+    this.setState({ attrList: newAttrList });
+  },
+  actionRemoveSelectedAttr: function () {
     var selectedAttr = this.state.selectedAttr;
     if (selectedAttr != null) {
-      var attrList = this.state.attrList;
-      var newAttrList = [];
-      for (var i = 0; i < attrList.length; i++) {
-        var attr = attrList[i];
-        if (attr != selectedAttr) {
-          newAttrList.push(attr);
-        }
+      var doc = document.getElementById('WebContent').contentWindow.document;
+      var clickedStyle = "tfClicked";
+      var props = selectedAttr.props;
+      var cssNames = props.cssNames;
+      var nodes = doc.getElementsByClassName(cssNames);
+      for (var i = nodes.length - 1; i >= 0; i--) {
+        var node = nodes[i];
+        node.classList.remove(clickedStyle);
       }
-      this.setState({ attrList: newAttrList });
+      this.actionRemoveAttr(props.name);
     }
   },
   render: function () {
@@ -323,13 +305,18 @@ var ToolAttrList = React.createClass({
 var ToolSettings = React.createClass({
   displayName: 'ToolSettings',
 
-  addAttr: function () {
-    this.props.glEventHub.emit('alertAddAttr', '');
+  checkAttr: function (className) {},
+  addAttr: function (attrName, cssNames) {
+    this.props.glEventHub.emit('alertAddAttr', attrName, cssNames);
   },
-  removeAttr: function () {
-    this.props.glEventHub.emit('alertRemoveAttr', '');
+  removeAttr: function (attrName) {
+    this.props.glEventHub.emit('alertRemoveAttr', attrName);
+  },
+  removeSelectedAttr: function () {
+    this.props.glEventHub.emit('alertRemoveSelectedAttr', "");
   },
   extract: function () {
+    var _this = this;
     var doc = document.getElementById('WebContent').contentWindow.document;
     if (doc.getElementById("tfstyle") == undefined) {
       var iframeDocHead = doc.getElementsByTagName("head")[0];
@@ -339,17 +326,65 @@ var ToolSettings = React.createClass({
       link.setAttribute("type", "text/css");
       link.setAttribute("href", "/css/style.css");
       iframeDocHead.appendChild(link);
-      doc.documentElement.onclick = function (e) {
+
+      var fnRemoveMouseoverCss = function () {
+        var mouseOverStyle = "tfMouseover";
+        var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
+        for (var i = mouseOverNodes.length - 1; i >= 0; i--) {
+          mouseOverNodes[i].classList.remove(mouseOverStyle);
+        }
+      };
+
+      doc.documentElement.onmouseover = function (e) {
         var x = e.clientX,
             y = e.clientY,
-            elementMouseIsOver = doc.elementFromPoint(x, y);
-        console.log(elementMouseIsOver);
-        var classList = elementMouseIsOver.classList;
-        var highlightStyle = "tfHighlight";
-        if (classList.contains(highlightStyle)) {
-          classList.remove(highlightStyle);
+            elementSelected = doc.elementFromPoint(x, y);
+        elementSelected.classList.add("tfMouseover");
+        console.log(elementSelected.className);
+      };
+
+      doc.documentElement.onmouseout = function (e) {
+        fnRemoveMouseoverCss();
+      };
+      doc.documentElement.onclick = function (e) {
+        fnRemoveMouseoverCss();
+        var x = e.clientX,
+            y = e.clientY,
+            elementSelected = doc.elementFromPoint(x, y);
+        var nodeWithClassAttr = function (node) {
+          if (node.hasAttribute("class")) {
+            return node;
+          } else {
+            return nodeWithClassAttr(node.parentElement);
+          }
+        };
+
+        console.log("> " + elementSelected.className);
+        var node = nodeWithClassAttr(elementSelected);
+        console.log("> " + node.className);
+        var className = node.className;
+        var classList = node.classList;
+        var clickedStyle = "tfClicked";
+        var isSelected = className.indexOf(clickedStyle) != -1 ? true : false;
+        var allNodes = this.getElementsByClassName(className);
+
+        for (var i = allNodes.length - 1; i > -1; i--) {
+          var eachNode = allNodes[i];
+          var eachNodeClassList = eachNode.classList;
+          if (isSelected) {
+            eachNodeClassList.remove(clickedStyle);
+          } else {
+            eachNodeClassList.add(clickedStyle);
+          }
+        }
+
+        if (isSelected) {
+          var newAttrName = node.className.replace(" ", "_");
+          _this.removeAttr(newAttrName);
         } else {
-          classList.add(highlightStyle);
+          var cssNames = className.replace(clickedStyle, "");
+          var newAttrName = cssNames.replace(" ", "_");
+          _this.addAttr(newAttrName, cssNames);
         }
       };
     }
@@ -360,31 +395,21 @@ var ToolSettings = React.createClass({
       { className: 'row no-gutters whitebg' },
       React.createElement(
         'button',
-        { type: 'button', className: 'btn btn-default', 'aria-label': 'Left Align', onClick: this.addAttr },
-        React.createElement('span', { className: 'glyphicon glyphicon-plus', 'aria-hidden': 'true' })
-      ),
-      React.createElement(
-        'button',
-        { type: 'button', className: 'btn btn-default', 'aria-label': 'Left Align', onClick: this.removeAttr },
-        React.createElement('span', { className: 'glyphicon glyphicon-minus', 'aria-hidden': 'true' })
-      ),
-      React.createElement(
-        'button',
-        { type: 'button', className: 'btn btn-default', 'aria-label': 'Left Align', onClick: this.addAttr },
-        React.createElement('span', { className: 'glyphicon glyphicon-import', 'aria-hidden': 'true' }),
-        ' Add to Layer'
-      ),
-      React.createElement(
-        'button',
-        { type: 'button', className: 'btn btn-default', 'aria-label': 'Left Align', onClick: this.addAttr },
-        React.createElement('span', { className: 'glyphicon glyphicon-export', 'aria-hidden': 'true' }),
-        ' Remove from Layer'
-      ),
-      React.createElement(
-        'button',
-        { type: 'button', className: 'btn btn-default', 'aria-label': 'Left Align', onClick: this.extract },
+        { type: 'button', className: 'btn btn-default col-xs-4 col-sd-4 col-md-4', 'aria-label': 'Left Align', onClick: this.extract },
         React.createElement('span', { className: 'glyphicon glyphicon-search', 'aria-hidden': 'true' }),
         ' Extract'
+      ),
+      React.createElement(
+        'button',
+        { type: 'button', className: 'btn btn-default col-xs-4 col-sd-4 col-md-4', 'aria-label': 'Left Align', onClick: this.removeSelectedAttr },
+        React.createElement('span', { className: 'glyphicon glyphicon-export', 'aria-hidden': 'true' }),
+        ' Remove selected layer'
+      ),
+      React.createElement(
+        'button',
+        { type: 'button', className: 'btn btn-default col-xs-4 col-sd-4 col-md-4', 'aria-label': 'Left Align', onClick: this.removeSelectedAttr },
+        React.createElement('span', { className: 'glyphicon glyphicon-open', 'aria-hidden': 'true' }),
+        ' Remove all layers'
       )
     );
   }

@@ -44,9 +44,10 @@ def html_decode(s):
 
 
 lookupAbsoluteURL = {
-    "img": ["src","data-deskscr","data-thumb"],
+    "img": ["src","data-deskscr","data-thumb","data-borealis-srcs"],
     "link": "href",
-    "script": "src"
+    "script": "src",
+    "source": "data-srcset"
 }
 
 lookupReplaceURL = {
