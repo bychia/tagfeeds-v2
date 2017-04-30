@@ -41,13 +41,13 @@ var config = {
           component: 'ToolContent',
           cssClass: 'toolContent',
           title: 'Interaction',
-          props: { title: 'Interaction' },
+          props: {},
           height: 35
         }, {
           type: 'react-component',
-          component: 'ActivityContent',
+          component: 'JSONContent',
           title: 'API Payload',
-          props: { title: 'Payload' }
+          props: { url: 'http://localhost:3000/example.json' }
         }]
       }]
     }]
@@ -86,12 +86,7 @@ var WebContent = React.createClass({
     return prefix + url;
   },
   render: function () {
-    var style = {
-      width: "100%",
-      height: "100%",
-      border: "none"
-    };
-    return React.createElement('iframe', { id: 'WebContent', src: this.state.hostname + "/?url=" + this.state.url, style: style, scrolling: 'yes' });
+    return React.createElement('iframe', { id: 'WebContent', src: this.state.hostname + "/?url=" + this.state.url, className: 'iframeNoBorder', scrolling: 'yes' });
   }
 });
 
@@ -326,45 +321,57 @@ var ToolSettings = React.createClass({
       link.setAttribute("type", "text/css");
       link.setAttribute("href", "/css/style.css");
       iframeDocHead.appendChild(link);
+      var clickedStyle = "tfClicked";
+      var mouseOverStyle = "tfMouseover";
+      var removeClickedStyle = "tfRemoveClicked";
 
-      var fnRemoveMouseoverCss = function () {
-        var mouseOverStyle = "tfMouseover";
+      var fnRemoveCss = function () {
         var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
         for (var i = mouseOverNodes.length - 1; i >= 0; i--) {
-          mouseOverNodes[i].classList.remove(mouseOverStyle);
+          var classList = mouseOverNodes[i].classList;
+          classList.remove(mouseOverStyle);
         }
+        var removeClickedNodes = doc.getElementsByClassName(removeClickedStyle);
+        for (var i = removeClickedNodes.length - 1; i >= 0; i--) {
+          var classList = removeClickedNodes[i].classList;
+          classList.remove(removeClickedStyle);
+        }
+      };
+
+      var nodeWithClassAttr = function (node) {
+        if (node.hasAttribute("class") && node.getAttribute("class") != "") {
+          return node;
+        } else {
+          return nodeWithClassAttr(node.parentElement);
+        }
+      };
+
+      doc.documentElement.onmouseout = function (e) {
+        fnRemoveCss();
       };
 
       doc.documentElement.onmouseover = function (e) {
         var x = e.clientX,
             y = e.clientY,
             elementSelected = doc.elementFromPoint(x, y);
-        elementSelected.classList.add("tfMouseover");
-        console.log(elementSelected.className);
+        var node = nodeWithClassAttr(elementSelected);
+        if (node.classList.contains(clickedStyle)) {
+          node.classList.add(removeClickedStyle);
+        } else {
+          node.classList.add(mouseOverStyle);
+        }
       };
 
-      doc.documentElement.onmouseout = function (e) {
-        fnRemoveMouseoverCss();
-      };
       doc.documentElement.onclick = function (e) {
-        fnRemoveMouseoverCss();
+        fnRemoveCss();
         var x = e.clientX,
             y = e.clientY,
             elementSelected = doc.elementFromPoint(x, y);
-        var nodeWithClassAttr = function (node) {
-          if (node.hasAttribute("class")) {
-            return node;
-          } else {
-            return nodeWithClassAttr(node.parentElement);
-          }
-        };
-
         console.log("> " + elementSelected.className);
         var node = nodeWithClassAttr(elementSelected);
         console.log("> " + node.className);
         var className = node.className;
         var classList = node.classList;
-        var clickedStyle = "tfClicked";
         var isSelected = className.indexOf(clickedStyle) != -1 ? true : false;
         var allNodes = this.getElementsByClassName(className);
 
@@ -429,21 +436,48 @@ var ToolContent = React.createClass({
   }
 });
 
-var ActivityContent = React.createClass({
-  displayName: 'ActivityContent',
+var JSONContent = React.createClass({
+  displayName: 'JSONContent',
 
+  formatJson: function (json) {
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+      var cls = 'number';
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'key';
+        } else {
+          cls = 'string';
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'boolean';
+      } else if (/null/.test(match)) {
+        cls = 'null';
+      }
+      //return '<span class="' + cls + '">' + match + '</span>';
+      return match;
+    });
+  },
+  getInitialState: function () {
+    var obj = { a: 1, 'b': 'foo', c: [false, 'false', null, 'null', { d: { e: 1.3e5, f: '1.3e5' } }] };
+    var json = JSON.stringify(obj, undefined, 4);
+    return { payload: json };
+  },
   render: function () {
-    return React.createElement(
-      'div',
-      null,
-      this.props.title
+    return (
+      // <iframe src={this.state.url} className="iframeNoBorder"></iframe>
+      React.createElement(
+        'pre',
+        { name: 'JSONContent' },
+        this.formatJson(this.state.payload)
+      )
     );
   }
 });
 
 myLayout.registerComponent('WebContent', WebContent);
 myLayout.registerComponent('ToolContent', ToolContent);
-myLayout.registerComponent('ActivityContent', ActivityContent);
+myLayout.registerComponent('JSONContent', JSONContent);
 myLayout.registerComponent('SearchBar', SearchBar);
 myLayout.on('itemCreated', function (item) {
   if (item.config.cssClass) {

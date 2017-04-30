@@ -15,12 +15,19 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
+.iframeNoBorder{
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
 .tfMouseover {
   border-top-right-radius: 10px !important;
   border-bottom-left-radius: 10px !important;
-  opacity: 0.2 !important;
+  opacity: 0.15 !important;
   background-color: slategray !important;
   z-index: 999;
+  cursor: copy;
 }
 
 .tfClicked {
@@ -29,6 +36,15 @@
   opacity: 0.85 !important;
   background-color: slategray !important;
   z-index: 999;
+}
+
+.tfRemoveClicked {
+  border-top-right-radius: 10px !important;
+  border-bottom-left-radius: 10px !important;
+  background-color: transparent !important;
+  border: 0.1rem dotted slategray !important;
+  z-index: 999;
+  cursor: no-drop;
 }
 
 .padding {
