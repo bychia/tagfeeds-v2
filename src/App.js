@@ -36,8 +36,8 @@ var config = {
             component: 'WebContent',
             title: 'Web Content',
             props: {hostname: 'http://localhost:3000/proxy',
-                    url: 'http://www.bbc.com/'},
-            width: 55
+                    url: 'https://news.google.com/'},
+            width: 75
           },
           {
            type:'column',
@@ -47,14 +47,14 @@ var config = {
               component: 'ToolContent',
               cssClass: 'toolContent',
               title: 'Interaction',
-              props: {},
-              height: 35
+              props: {}
              },
              {
               type:'react-component',
               component: 'JSONContent',
+              cssClass: 'jsonContent',
               title: 'API Payload',
-              props: {url: 'http://localhost:3000/example.json'}
+              props: {url: 'http://localhost:3000/example.json'},
              }
            ]
           }
@@ -79,7 +79,8 @@ var WebContent = React.createClass({
       url = this.suggestUrl(url);
       if(this.state.url != url){
         this.setState({url: url});
-        $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url);
+        $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url + "?_escaped_fragment_="); //need to polish url
+        this.props.glEventHub.emit( 'alertRemoveAllAttr', ""); //load new page, remove all attributes
       }
     },
     suggestUrl: function(url){
@@ -94,7 +95,7 @@ var WebContent = React.createClass({
     },
     render: function() {
       return (
-        <iframe id="WebContent" src={this.state.hostname + "/?url=" + this.state.url} className="iframeNoBorder" scrolling="yes"></iframe>
+        <iframe id="WebContent" src={this.state.hostname + "/?url=" + this.state.url + "?_escaped_fragment_="} className="iframeNoBorder" scrolling="yes"></iframe>
       )
     }
 });
@@ -105,8 +106,19 @@ var SearchBar = React.createClass({
   },
   handleSearch: function(e) {
       if (e.charCode == 13 || e.keyCode == 13) {
-        this.state.url = e.target.value;
-        this.props.glEventHub.emit( 'alertUrlUpdate', this.state.url );
+        var _this = this;
+        var url = e.target.value;
+        $.confirm({
+            title: 'Exiting your current setup?',
+            content: 'Your current setup will be gone if you choose to continue. Do you want to proceed?',
+            buttons: {
+              confirm: function(){
+                _this.state.url = url;
+                _this.props.glEventHub.emit( 'alertUrlUpdate', url );
+              },
+              cancel: function(){}
+            }
+        });
       }
   },
   render: function() {
@@ -181,25 +193,6 @@ var ToolAttr = React.createClass({
   }
 });
 
-// <select name="selectAttrType" className="maxWidth" key={"selectAttrType"+this.state.keyIndex}>
-//     {
-//       this.state.controlOptions.map(function( data, key ){
-//           return <option key={key} value={data.key}>{data.value}</option>
-//       },this)
-//     }
-// </select>
-// <div name="divAttr" key={"divAttr"+this.state.keyIndex}>
-// <input type="text" name="inputAttrName" key={"inputAttrName"+this.state.keyIndex} />
-// <input type="button" value="-" name="btnRemoveAttr" key={"btnRemoveAttr"+this.state.keyIndex} onClick={this.removeAttr}/>
-// <select name="selectAttrType" key={"selectAttrType"+this.state.keyIndex}>
-//     {
-//       this.state.controlOptions.map(function( data, key ){
-//           return <option key={key} value={data.key}>{data.value}</option>
-//       },this)
-//     }
-// </select>
-// <input type="submit" value="Extract" key={"btnExtract"+this.state.keyIndex} name="btnExtract"/>
-// </div>
 
 var ToolAttrList = React.createClass({
   getInitialState: function() {
@@ -215,12 +208,14 @@ var ToolAttrList = React.createClass({
       this.props.glEventHub.on( 'alertSelectAttr', this.actionSelectAttr );
       this.props.glEventHub.on( 'alertRemoveAttr', this.actionRemoveAttr );
       this.props.glEventHub.on( 'alertRemoveSelectedAttr', this.actionRemoveSelectedAttr );
+      this.props.glEventHub.on( 'alertRemoveAllAttr', this.actionRemoveAllAttr );
   },
   componentWillUnmount: function() {
       this.props.glEventHub.off( 'alertAddAttr', this.actionAddAttr );
       this.props.glEventHub.off( 'alertSelectAttr', this.actionSelectAttr );
       this.props.glEventHub.off( 'alertRemoveAttr', this.actionRemoveAttr );
       this.props.glEventHub.off( 'alertRemoveSelectedAttr', this.actionRemoveSelectedAttr );
+      this.props.glEventHub.off( 'alertRemoveAllAttr', this.actionRemoveAllAttr );
   },
   getLastKeyIndex: function(list){
     var listLength = list.length;
@@ -265,17 +260,28 @@ var ToolAttrList = React.createClass({
   actionRemoveSelectedAttr: function(){
       var selectedAttr = this.state.selectedAttr;
       if(selectedAttr!=null){
-        var doc = document.getElementById('WebContent').contentWindow.document;
-        var clickedStyle = "tfClicked";
-        var props = selectedAttr.props;
-        var cssNames = props.cssNames;
-        var nodes = doc.getElementsByClassName(cssNames);
-        for(var i=nodes.length-1; i>=0; i--){
-          var node = nodes[i];
-          node.classList.remove(clickedStyle);
-        }
-        this.actionRemoveAttr(props.name);
+          var doc = document.getElementById('WebContent').contentWindow.document;
+          var clickedStyle = "tfClicked";
+          var props = selectedAttr.props;
+          var cssNames = props.cssNames;
+          var nodes = doc.getElementsByClassName(cssNames);
+          for(var i=nodes.length-1; i>=0; i--){
+            var node = nodes[i];
+            node.classList.remove(clickedStyle);
+          }
+          this.actionRemoveAttr(props.name);
       }
+  },
+  actionRemoveAllAttr: function(){
+    var doc = document.getElementById('WebContent').contentWindow.document;
+    var clickedStyle = "tfClicked";
+    var nodes = doc.getElementsByClassName(clickedStyle);
+    for(var i=nodes.length-1; i>=0; i--){
+      var node = nodes[i];
+      node.classList.remove(clickedStyle);
+    }
+    var newAttrList = [];
+    this.setState({attrList: newAttrList});
   },
   render: function(){
       var attrList = this.state.attrList;
@@ -298,88 +304,116 @@ var ToolSettings = React.createClass({
   removeSelectedAttr: function(){
     this.props.glEventHub.emit( 'alertRemoveSelectedAttr', "");
   },
+  removeAllAttr: function(){
+    this.props.glEventHub.emit( 'alertRemoveAllAttr', "");
+  },
   extract: function(){
     var _this = this;
-    var doc = document.getElementById('WebContent').contentWindow.document;
-    if(doc.getElementById("tfstyle")==undefined){
-      var iframeDocHead = doc.getElementsByTagName("head")[0];
-      var link = doc.createElement("link");
-      link.setAttribute("id","tfstyle");
-      link.setAttribute("rel", "stylesheet");
-      link.setAttribute("type", "text/css");
-      link.setAttribute("href", "/css/style.css");
-      iframeDocHead.appendChild(link);
-      var clickedStyle = "tfClicked";
-      var mouseOverStyle = "tfMouseover";
-      var removeClickedStyle = "tfRemoveClicked";
+    $('#WebContent').load(function() {
+      var doc = document.getElementById('WebContent').contentWindow.document;
+      if(doc.getElementById("tfstyle")==undefined){
+        var iframeDocHead = doc.getElementsByTagName("head")[0];
+        var link = doc.createElement("link");
+        link.setAttribute("id","tfstyle");
+        link.setAttribute("rel", "stylesheet");
+        link.setAttribute("type", "text/css");
+        link.setAttribute("href", "/css/style.css");
+        iframeDocHead.appendChild(link);
+        var clickedStyle = "tfClicked";
+        var mouseOverStyle = "tfMouseover";
+        var removeClickedStyle = "tfRemoveClicked";
 
-      var fnRemoveCss = function(){
-        var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
-        for(var i=mouseOverNodes.length-1; i>=0; i--){
-          var classList = mouseOverNodes[i].classList;
-          classList.remove(mouseOverStyle);
-        }
-        var removeClickedNodes = doc.getElementsByClassName(removeClickedStyle);
-        for(var i=removeClickedNodes.length-1; i>=0; i--){
-          var classList = removeClickedNodes[i].classList;
-          classList.remove(removeClickedStyle);
-        }
-      };
+        // var fnRemoveLinkPropagation = function(){
+        //   // $('*').on('click', function(event){
+        //   //   event.preventDefault()
+        //   //   event.stopPropagation();
+        //   // });
+        //   var nodes = doc.getElementsByTagName('*');
+        //   for(var i=0; i<nodes.length; i++){
+        //     var node = nodes[i];
+        //     node.onclick = function(event){
+        //       //event.preventDefault();
+        //       event.stopPropagation();
+        //     }
+        //   }
+        // };
+        //
+        // // executes link propagation
+        // fnRemoveLinkPropagation();
 
-      var nodeWithClassAttr = function(node){
-        if(node.hasAttribute("class") && node.getAttribute("class")!=""){
-          return node;
-        }else{
-          return nodeWithClassAttr(node.parentElement);
-        }
-      };
-
-      doc.documentElement.onmouseout = function(e){
-        fnRemoveCss();
-      };
-
-      doc.documentElement.onmouseover = function(e){
-        var x = e.clientX, y = e.clientY, elementSelected = doc.elementFromPoint(x, y);
-        var node = nodeWithClassAttr(elementSelected);
-        if(node.classList.contains(clickedStyle)){
-            node.classList.add(removeClickedStyle);
-        }else{
-          node.classList.add(mouseOverStyle);
-        }
-      };
-
-      doc.documentElement.onclick = function(e){
-        fnRemoveCss();
-        var x = e.clientX, y = e.clientY, elementSelected = doc.elementFromPoint(x, y);
-        console.log("> "+elementSelected.className);
-        var node = nodeWithClassAttr(elementSelected);
-        console.log("> "+node.className);
-        var className = node.className;
-        var classList = node.classList;
-        var isSelected = className.indexOf(clickedStyle) != -1? true: false;
-        var allNodes = this.getElementsByClassName(className);
-
-        for(var i=allNodes.length-1; i>-1; i--){
-          var eachNode = allNodes[i];
-          var eachNodeClassList = eachNode.classList;
-          if(isSelected){
-              eachNodeClassList.remove(clickedStyle);
-          }else{
-              eachNodeClassList.add(clickedStyle);
+        var fnRemoveCss = function(){
+          var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
+          for(var i=mouseOverNodes.length-1; i>=0; i--){
+            var classList = mouseOverNodes[i].classList;
+            classList.remove(mouseOverStyle);
           }
-        }
+          var removeClickedNodes = doc.getElementsByClassName(removeClickedStyle);
+          for(var i=removeClickedNodes.length-1; i>=0; i--){
+            var classList = removeClickedNodes[i].classList;
+            classList.remove(removeClickedStyle);
+          }
+        };
 
-        if(isSelected){
-          var newAttrName = node.className.replace(" ", "_");
-          _this.removeAttr(newAttrName);
-        }else{
-          var cssNames = className.replace(clickedStyle,"");
-          var newAttrName = cssNames.replace(" ", "_");
-          _this.addAttr(newAttrName, cssNames);
-        }
+        var nodeWithClassAttr = function(node){
+          if(node.hasAttribute("class") && node.getAttribute("class")!=""){
+            return node;
+          }else{
+            return nodeWithClassAttr(node.parentElement);
+          }
+        };
 
-      };
-    }
+        doc.documentElement.onmouseout = function(e){
+          fnRemoveCss();
+        };
+
+        doc.documentElement.onmouseover = function(e){
+          var x = e.clientX, y = e.clientY, elementSelected = doc.elementFromPoint(x, y);
+          var node = nodeWithClassAttr(elementSelected);
+          if(node.classList.contains(clickedStyle)){
+              node.classList.add(removeClickedStyle);
+          }else{
+            node.classList.add(mouseOverStyle);
+          }
+        };
+
+        doc.documentElement.onclick = function(e){
+
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          fnRemoveCss();
+          var x = e.clientX, y = e.clientY, elementSelected = doc.elementFromPoint(x, y);
+          console.log("> "+elementSelected.className);
+          var node = nodeWithClassAttr(elementSelected);
+          console.log("> "+node.className);
+          var className = node.className;
+          var classList = node.classList;
+          var isSelected = className.indexOf(clickedStyle) != -1? true: false;
+          var allNodes = this.getElementsByClassName(className);
+
+          for(var i=allNodes.length-1; i>-1; i--){
+            var eachNode = allNodes[i];
+            var eachNodeClassList = eachNode.classList;
+            if(isSelected){
+                eachNodeClassList.remove(clickedStyle);
+            }else{
+                eachNodeClassList.add(clickedStyle);
+            }
+          }
+
+          if(isSelected){
+            var newAttrName = node.className.replace(" ", "_");
+            _this.removeAttr(newAttrName);
+          }else{
+            var cssNames = className.replace(clickedStyle,"");
+            var newAttrName = cssNames.replace(" ", "_");
+            _this.addAttr(newAttrName, cssNames);
+          }
+        };
+      }
+
+    });
   },
   render: function(){
       return (
@@ -390,8 +424,11 @@ var ToolSettings = React.createClass({
           <button type="button" className="btn btn-default col-xs-4 col-sd-4 col-md-4" aria-label="Left Align" onClick={this.removeSelectedAttr}>
             <span className="glyphicon glyphicon-export" aria-hidden="true"/> Remove selected layer
           </button>
-          <button type="button" className="btn btn-default col-xs-4 col-sd-4 col-md-4" aria-label="Left Align" onClick={this.removeSelectedAttr}>
+          <button type="button" className="btn btn-default col-xs-4 col-sd-4 col-md-4" aria-label="Left Align" onClick={this.removeAllAttr}>
             <span className="glyphicon glyphicon-open" aria-hidden="true"/> Remove all layers
+          </button>
+          <button type="button" className="btn btn-default col-xs-12 col-sd-12 col-md-12" aria-label="Left Align" onClick={this.extract}>
+            <span className="glyphicon glyphicon-search" aria-hidden="true"/> Convert to JSON
           </button>
         </div>
       )
@@ -428,7 +465,7 @@ var JSONContent = React.createClass({
       });
     },
     getInitialState: function() {
-      var obj = {a:1, 'b':'foo', c:[false,'false',null, 'null', {d:{e:1.3e5,f:'1.3e5'}}]};
+      var obj = {a:1, 'b':'foo', c:[false,'false',null, 'null', {d:{e:1.3e5,f:'1.3e5'}},{d:{e:1.3e5,f:'1.3e5'}},{d:{e:1.3e5,f:'1.3e5'}}]};
       var json = JSON.stringify(obj, undefined, 4);
       return { payload: json };
     },
@@ -459,7 +496,7 @@ var Header = React.createClass({
       marginBottom: "0rem"
     }
     return (
-      <div style={style}><img src="images/tf_logo.png"/></div>
+      <div style={style}><img src="images/tf_logo.png"/><span className="label label-default">v0.8 BETA</span></div>
     )
   }
 });

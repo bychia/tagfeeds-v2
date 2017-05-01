@@ -57,6 +57,12 @@
   background: white;
 }
 
+.jsonContent{
+  height: 100% !important;
+  overflow-y: scroll !important;
+  overflow-x: hidden;
+}
+
 .no-gutters {
   margin-right: 0 !important;
   margin-left: 0 !important;
@@ -76,6 +82,10 @@ input[name="inputAttrName"]{
 }
 
 /* Override bootstrap CSS */
+pre{
+  height: 100% !important;
+}
+
 .btn {
   padding: 6px 10px !important;
   font-size: 10px !important;

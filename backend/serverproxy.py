@@ -65,19 +65,20 @@ def replaceContent(htmlContent, absoluteURL):
         for eachTag in findTags:
             if eachTag!= None and eachTag.has_key(value):
                 tagValue = eachTag[value]
-                if(removeURL==False):
-                    if tagValue.find("http")==0 or tagValue.find("#")==0:
-                        continue #skip
-                    elif tagValue.find("//")==-1 and tagValue.find("/")==0:
-                        eachTag[value] = baseURL + tagValue
-                    elif tagValue.find("//")==-1 and tagValue.find("./")==0:
-                        eachTag[value] = absoluteURL + tagValue[1:]
-                    elif tagValue.find("//")==-1 and tagValue.find("..")==0:
-                        eachTag[value] = urljoin(absoluteURL, tagValue)
-                    elif tagValue.find("//")==-1 and len(re.findall("^[A-Za-z0-9]+",tagValue))>0:
-                            eachTag[value] = absoluteURL + "/" + tagValue
-                else:
-                    eachTag[value] = "javascript:void(0)"
+                if tagValue.find("http")==0 or tagValue.find("#")==0:
+                    continue #skip
+                elif tagValue.find("//")==-1 and tagValue.find("/")==0:
+                    eachTag[value] = baseURL + tagValue
+                elif tagValue.find("//")==-1 and tagValue.find("./")==0:
+                    eachTag[value] = absoluteURL + tagValue[1:]
+                elif tagValue.find("//")==-1 and tagValue.find("..")==0:
+                    eachTag[value] = urljoin(absoluteURL, tagValue)
+                elif tagValue.find("//")==-1 and len(re.findall("^[A-Za-z0-9]+",tagValue))>0:
+                        eachTag[value] = absoluteURL + "/" + tagValue
+                if(removeURL==True):
+                    if(value=="href"):
+                        eachTag["tfHref"]=eachTag[value];
+                    # eachTag[value] = "javascript:void(0)"
 
     #Search through all tagNames
     for key, value in lookupAbsoluteURL.iteritems():
@@ -115,6 +116,17 @@ def cleanUrl(url):
 
 
 #Endpoints
+@app.route('/results',methods=['POST'])
+def result_handler():
+    return Response(
+        htmlContent,
+        mimetype='text/html',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
+
 @app.route('/', methods=['GET'])
 def curl_handler():
     htmlContent = ""
