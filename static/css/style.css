@@ -79,6 +79,7 @@ input[name="inputAttrName"]{
 
 .lm_content{
   background: #fff !important;
+  border: none !important;
 }
 
 /* Override bootstrap CSS */

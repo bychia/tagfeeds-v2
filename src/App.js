@@ -9,7 +9,7 @@ var config = {
       closePopoutsOnUnload: true,
       showPopoutIcon: false,
       showMaximiseIcon: true,
-      showCloseIcon: false
+      showCloseIcon: true
   },
   dimensions: {
         borderWidth: 10,
@@ -77,11 +77,12 @@ var WebContent = React.createClass({
     },
     refresh: function( url ) {
       url = this.suggestUrl(url);
-      if(this.state.url != url){
+      // if(this.state.url != url){
         this.setState({url: url});
-        $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url + "?_escaped_fragment_="); //need to polish url
+        // var urlPostFix = url.endsWith("/")? "" : "/";
+        $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url ); //+ urlPostFix + "?_escaped_fragment_="); //need to polish url
         this.props.glEventHub.emit( 'alertRemoveAllAttr', ""); //load new page, remove all attributes
-      }
+      // }
     },
     suggestUrl: function(url){
       var prefix = "";
@@ -95,7 +96,7 @@ var WebContent = React.createClass({
     },
     render: function() {
       return (
-        <iframe id="WebContent" src={this.state.hostname + "/?url=" + this.state.url + "?_escaped_fragment_="} className="iframeNoBorder" scrolling="yes"></iframe>
+        <iframe id="WebContent" src={this.state.hostname + "/?url=" + this.state.url } className="iframeNoBorder" scrolling="yes" alt={this.state.url}></iframe>
       )
     }
 });
@@ -124,7 +125,7 @@ var SearchBar = React.createClass({
   render: function() {
     return (
       <div>
-        <input id="tfsearch" name="tfsearch" type="text" placeholder="Enter a URL. E.g. http://www.bbc.com" onKeyDown={this.handleSearch} autoComplete="off" autoFocus/>
+        <input id="tfsearch" name="tfsearch" type="text" placeholder="Enter a URL. E.g. http://news.google.com" onKeyDown={this.handleSearch} autoComplete="off" autoFocus/>
       </div>
     )
   }
@@ -138,6 +139,9 @@ var ToolAttr = React.createClass({
         name: this.props.name,
         cssNames: this.props.cssNames
       };
+  },
+  getState: function(){
+    return this.state;
   },
   addToSelection: function(){
       // Change CSS of the Div in selection
@@ -163,6 +167,9 @@ var ToolAttr = React.createClass({
     var selection = event.target.text;
     btnDropdown.html(selection + ' <span class="caret"></span>');
   },
+  setName: function(event){
+    this.state.name = event.target.value;
+  },
   render: function(){
       var cssNames = this.state.cssNames.split(" ");
 
@@ -175,7 +182,7 @@ var ToolAttr = React.createClass({
             </button>
           </div>
           <div className="col-md-11 col-sm-11">
-            <input type="text" name="inputAttrName" className="maxWidth" key={"inputAttrName"+this.state.keyIndex} defaultValue={this.state.name}/>
+            <input type="text" name="inputAttrName" className="maxWidth" key={"inputAttrName"+this.state.keyIndex} defaultValue={this.state.name} onChange={this.setName}/>
           </div>
           <div className="col-md-12 col-sd-12 collapse" id={"cssSelector"+this.state.keyIndex+"Target"}>
             <div className="col-md-12 col-sd-12 well">
@@ -202,6 +209,9 @@ var ToolAttrList = React.createClass({
         selectedAttr: null,
         attrList:[]
       };
+  },
+  getAttrList: function(){
+      return this.state.attrList;
   },
   componentWillMount: function() {
       this.props.glEventHub.on( 'alertAddAttr', this.actionAddAttr );
@@ -243,7 +253,7 @@ var ToolAttrList = React.createClass({
     var eventHub = this.props.glEventHub;
     var attrList = this.state.attrList;
     var nextKeyIndex = this.getLastKeyIndex(attrList)+1;
-    attrList.push(<ToolAttr name={attrName} cssNames={cssNames} key={nextKeyIndex} keyIndex={nextKeyIndex} glEventHub={eventHub}/>);
+    attrList.push(<ToolAttr name={attrName} cssNames={cssNames} key={nextKeyIndex} keyIndex={nextKeyIndex} glEventHub={eventHub} ref="toolAttr"/>);
     this.setState({attrList: attrList});
   },
   actionRemoveAttr: function (attrName){
@@ -292,9 +302,6 @@ var ToolAttrList = React.createClass({
 });
 
 var ToolSettings = React.createClass({
-  checkAttr: function(className){
-
-  },
   addAttr: function(attrName, cssNames){
       this.props.glEventHub.emit( 'alertAddAttr', attrName, cssNames);
   },
@@ -307,10 +314,19 @@ var ToolSettings = React.createClass({
   removeAllAttr: function(){
     this.props.glEventHub.emit( 'alertRemoveAllAttr', "");
   },
+  fetchResponse: function(response){
+      this.props.glEventHub.emit( 'alertRefreshJson', response);
+  },
   extract: function(){
     var _this = this;
-    $('#WebContent').load(function() {
-      var doc = document.getElementById('WebContent').contentWindow.document;
+    // $('#WebContent').load(function() {
+      var doc = null;
+      var iframe = document.getElementById('WebContent');
+      if (iframe.contentDocument) {
+          doc = iframe.contentDocument;
+      } else {
+          doc = iframe.contentWindow.document;
+      }
       if(doc.getElementById("tfstyle")==undefined){
         var iframeDocHead = doc.getElementsByTagName("head")[0];
         var link = doc.createElement("link");
@@ -384,9 +400,9 @@ var ToolSettings = React.createClass({
 
           fnRemoveCss();
           var x = e.clientX, y = e.clientY, elementSelected = doc.elementFromPoint(x, y);
-          console.log("> "+elementSelected.className);
+          // console.log(">>"+elementSelected.className+"<<");
           var node = nodeWithClassAttr(elementSelected);
-          console.log("> "+node.className);
+          // console.log(">"+node.className+"<");
           var className = node.className;
           var classList = node.classList;
           var isSelected = className.indexOf(clickedStyle) != -1? true: false;
@@ -412,7 +428,40 @@ var ToolSettings = React.createClass({
           }
         };
       }
+  },
 
+  convertToJson : function(){
+    var _this = this;
+    var jsonData = {};
+    var urlToTag = ($("#WebContent").attr("alt"));
+    var toolAttrList = this.props.callbackParent();
+    var attrList = toolAttrList.getAttrList();
+    var componentToTag = [];
+    for(var i = 0; i< attrList.length; i++){
+      var component = {};
+      component["name"] = attrList[i].props.name;
+      component["cssNames"] = attrList[i].props.cssNames;
+      componentToTag.push(component);
+    }
+    jsonData["urlToTag"] = urlToTag;
+    jsonData["componentToTag"] = componentToTag;
+
+
+    // TODO: change the strURL
+    var strUrl = "http://127.0.0.1:3800/results";
+
+    $.ajax({
+      url: strUrl,
+      type: "POST",
+      data: JSON.stringify(jsonData),
+      contentType: "application/json",
+      timeout: 10000,
+      success: function(data) {
+        _this.fetchResponse(data);
+      }.bind(this),
+      error: function(xhr, status, err) {
+        console.log(strUrl, status, err.toString());
+      }.bind(this)
     });
   },
   render: function(){
@@ -427,7 +476,7 @@ var ToolSettings = React.createClass({
           <button type="button" className="btn btn-default col-xs-4 col-sd-4 col-md-4" aria-label="Left Align" onClick={this.removeAllAttr}>
             <span className="glyphicon glyphicon-open" aria-hidden="true"/> Remove all layers
           </button>
-          <button type="button" className="btn btn-default col-xs-12 col-sd-12 col-md-12" aria-label="Left Align" onClick={this.extract}>
+          <button type="button" className="btn btn-default col-xs-12 col-sd-12 col-md-12" aria-label="Left Align" onClick={this.convertToJson}>
             <span className="glyphicon glyphicon-search" aria-hidden="true"/> Convert to JSON
           </button>
         </div>
@@ -436,16 +485,35 @@ var ToolSettings = React.createClass({
 });
 
 var ToolContent = React.createClass({
+  getToolAttrList : function(){
+    var toolAttrList = this.refs.toolAttrList;
+    return toolAttrList;
+  },
   render: function(){
     var eventHub = this.props.glEventHub;
     return (
-      <div><ToolSettings glEventHub={eventHub}/><ToolAttrList glEventHub={eventHub}/></div>
+      <div><ToolSettings glEventHub={eventHub} ref="toolSettings"  callbackParent={this.getToolAttrList}/><ToolAttrList glEventHub={eventHub} ref="toolAttrList"/></div>
     )}
 });
 
 
 var JSONContent = React.createClass({
-      formatJson: function(json) {
+    componentWillMount: function() {
+        this.props.glEventHub.on( 'alertRefreshJson', this.actionRefreshJson );
+    },
+    componentWillUnmount: function() {
+        this.props.glEventHub.off( 'alertRefreshJson', this.actionRefreshJson );
+    },
+    getInitialState: function() {
+      return { response: "" };
+    },
+    jsonToString: function(json){
+      return JSON.stringify(json, undefined, 2);
+    },
+    actionRefreshJson: function(response){
+      this.setState({response: this.jsonToString(response)});
+    },
+    formatJson: function(json) {
       json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
           var cls = 'number';
@@ -460,19 +528,14 @@ var JSONContent = React.createClass({
           } else if (/null/.test(match)) {
               cls = 'null';
           }
-          //return '<span class="' + cls + '">' + match + '</span>';
+          //return '<span>' + match + '</span>';
           return match;
       });
-    },
-    getInitialState: function() {
-      var obj = {a:1, 'b':'foo', c:[false,'false',null, 'null', {d:{e:1.3e5,f:'1.3e5'}},{d:{e:1.3e5,f:'1.3e5'}},{d:{e:1.3e5,f:'1.3e5'}}]};
-      var json = JSON.stringify(obj, undefined, 4);
-      return { payload: json };
     },
     render: function() {
       return (
         // <iframe src={this.state.url} className="iframeNoBorder"></iframe>
-        <pre name="JSONContent">{this.formatJson(this.state.payload)}</pre>
+        <pre name="JSONContent">{this.formatJson(this.state.response)}</pre>
       )
     }
 });

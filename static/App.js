@@ -9,7 +9,7 @@ var config = {
     closePopoutsOnUnload: true,
     showPopoutIcon: false,
     showMaximiseIcon: true,
-    showCloseIcon: false
+    showCloseIcon: true
   },
   dimensions: {
     borderWidth: 10,
@@ -70,11 +70,12 @@ var WebContent = React.createClass({
   },
   refresh: function (url) {
     url = this.suggestUrl(url);
-    if (this.state.url != url) {
-      this.setState({ url: url });
-      $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url + "?_escaped_fragment_="); //need to polish url
-      this.props.glEventHub.emit('alertRemoveAllAttr', ""); //load new page, remove all attributes
-    }
+    // if(this.state.url != url){
+    this.setState({ url: url });
+    // var urlPostFix = url.endsWith("/")? "" : "/";
+    $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url); //+ urlPostFix + "?_escaped_fragment_="); //need to polish url
+    this.props.glEventHub.emit('alertRemoveAllAttr', ""); //load new page, remove all attributes
+    // }
   },
   suggestUrl: function (url) {
     var prefix = "";
@@ -87,7 +88,7 @@ var WebContent = React.createClass({
     return prefix + url;
   },
   render: function () {
-    return React.createElement('iframe', { id: 'WebContent', src: this.state.hostname + "/?url=" + this.state.url + "?_escaped_fragment_=", className: 'iframeNoBorder', scrolling: 'yes' });
+    return React.createElement('iframe', { id: 'WebContent', src: this.state.hostname + "/?url=" + this.state.url, className: 'iframeNoBorder', scrolling: 'yes', alt: this.state.url });
   }
 });
 
@@ -118,7 +119,7 @@ var SearchBar = React.createClass({
     return React.createElement(
       'div',
       null,
-      React.createElement('input', { id: 'tfsearch', name: 'tfsearch', type: 'text', placeholder: 'Enter a URL. E.g. http://www.bbc.com', onKeyDown: this.handleSearch, autoComplete: 'off', autoFocus: true })
+      React.createElement('input', { id: 'tfsearch', name: 'tfsearch', type: 'text', placeholder: 'Enter a URL. E.g. http://news.google.com', onKeyDown: this.handleSearch, autoComplete: 'off', autoFocus: true })
     );
   }
 });
@@ -132,6 +133,9 @@ var ToolAttr = React.createClass({
       name: this.props.name,
       cssNames: this.props.cssNames
     };
+  },
+  getState: function () {
+    return this.state;
   },
   addToSelection: function () {
     // Change CSS of the Div in selection
@@ -157,6 +161,9 @@ var ToolAttr = React.createClass({
     var selection = event.target.text;
     btnDropdown.html(selection + ' <span class="caret"></span>');
   },
+  setName: function (event) {
+    this.state.name = event.target.value;
+  },
   render: function () {
     var cssNames = this.state.cssNames.split(" ");
 
@@ -176,7 +183,7 @@ var ToolAttr = React.createClass({
       React.createElement(
         'div',
         { className: 'col-md-11 col-sm-11' },
-        React.createElement('input', { type: 'text', name: 'inputAttrName', className: 'maxWidth', key: "inputAttrName" + this.state.keyIndex, defaultValue: this.state.name })
+        React.createElement('input', { type: 'text', name: 'inputAttrName', className: 'maxWidth', key: "inputAttrName" + this.state.keyIndex, defaultValue: this.state.name, onChange: this.setName })
       ),
       React.createElement(
         'div',
@@ -211,6 +218,9 @@ var ToolAttrList = React.createClass({
       selectedAttr: null,
       attrList: []
     };
+  },
+  getAttrList: function () {
+    return this.state.attrList;
   },
   componentWillMount: function () {
     this.props.glEventHub.on('alertAddAttr', this.actionAddAttr);
@@ -252,7 +262,7 @@ var ToolAttrList = React.createClass({
     var eventHub = this.props.glEventHub;
     var attrList = this.state.attrList;
     var nextKeyIndex = this.getLastKeyIndex(attrList) + 1;
-    attrList.push(React.createElement(ToolAttr, { name: attrName, cssNames: cssNames, key: nextKeyIndex, keyIndex: nextKeyIndex, glEventHub: eventHub }));
+    attrList.push(React.createElement(ToolAttr, { name: attrName, cssNames: cssNames, key: nextKeyIndex, keyIndex: nextKeyIndex, glEventHub: eventHub, ref: 'toolAttr' }));
     this.setState({ attrList: attrList });
   },
   actionRemoveAttr: function (attrName) {
@@ -305,7 +315,6 @@ var ToolAttrList = React.createClass({
 var ToolSettings = React.createClass({
   displayName: 'ToolSettings',
 
-  checkAttr: function (className) {},
   addAttr: function (attrName, cssNames) {
     this.props.glEventHub.emit('alertAddAttr', attrName, cssNames);
   },
@@ -318,115 +327,157 @@ var ToolSettings = React.createClass({
   removeAllAttr: function () {
     this.props.glEventHub.emit('alertRemoveAllAttr', "");
   },
+  fetchResponse: function (response) {
+    this.props.glEventHub.emit('alertRefreshJson', response);
+  },
   extract: function () {
     var _this = this;
-    $('#WebContent').load(function () {
-      var doc = document.getElementById('WebContent').contentWindow.document;
-      if (doc.getElementById("tfstyle") == undefined) {
-        var iframeDocHead = doc.getElementsByTagName("head")[0];
-        var link = doc.createElement("link");
-        link.setAttribute("id", "tfstyle");
-        link.setAttribute("rel", "stylesheet");
-        link.setAttribute("type", "text/css");
-        link.setAttribute("href", "/css/style.css");
-        iframeDocHead.appendChild(link);
-        var clickedStyle = "tfClicked";
-        var mouseOverStyle = "tfMouseover";
-        var removeClickedStyle = "tfRemoveClicked";
+    // $('#WebContent').load(function() {
+    var doc = null;
+    var iframe = document.getElementById('WebContent');
+    if (iframe.contentDocument) {
+      doc = iframe.contentDocument;
+    } else {
+      doc = iframe.contentWindow.document;
+    }
+    if (doc.getElementById("tfstyle") == undefined) {
+      var iframeDocHead = doc.getElementsByTagName("head")[0];
+      var link = doc.createElement("link");
+      link.setAttribute("id", "tfstyle");
+      link.setAttribute("rel", "stylesheet");
+      link.setAttribute("type", "text/css");
+      link.setAttribute("href", "/css/style.css");
+      iframeDocHead.appendChild(link);
+      var clickedStyle = "tfClicked";
+      var mouseOverStyle = "tfMouseover";
+      var removeClickedStyle = "tfRemoveClicked";
 
-        // var fnRemoveLinkPropagation = function(){
-        //   // $('*').on('click', function(event){
-        //   //   event.preventDefault()
-        //   //   event.stopPropagation();
-        //   // });
-        //   var nodes = doc.getElementsByTagName('*');
-        //   for(var i=0; i<nodes.length; i++){
-        //     var node = nodes[i];
-        //     node.onclick = function(event){
-        //       //event.preventDefault();
-        //       event.stopPropagation();
-        //     }
-        //   }
-        // };
-        //
-        // // executes link propagation
-        // fnRemoveLinkPropagation();
+      // var fnRemoveLinkPropagation = function(){
+      //   // $('*').on('click', function(event){
+      //   //   event.preventDefault()
+      //   //   event.stopPropagation();
+      //   // });
+      //   var nodes = doc.getElementsByTagName('*');
+      //   for(var i=0; i<nodes.length; i++){
+      //     var node = nodes[i];
+      //     node.onclick = function(event){
+      //       //event.preventDefault();
+      //       event.stopPropagation();
+      //     }
+      //   }
+      // };
+      //
+      // // executes link propagation
+      // fnRemoveLinkPropagation();
 
-        var fnRemoveCss = function () {
-          var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
-          for (var i = mouseOverNodes.length - 1; i >= 0; i--) {
-            var classList = mouseOverNodes[i].classList;
-            classList.remove(mouseOverStyle);
-          }
-          var removeClickedNodes = doc.getElementsByClassName(removeClickedStyle);
-          for (var i = removeClickedNodes.length - 1; i >= 0; i--) {
-            var classList = removeClickedNodes[i].classList;
-            classList.remove(removeClickedStyle);
-          }
-        };
+      var fnRemoveCss = function () {
+        var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
+        for (var i = mouseOverNodes.length - 1; i >= 0; i--) {
+          var classList = mouseOverNodes[i].classList;
+          classList.remove(mouseOverStyle);
+        }
+        var removeClickedNodes = doc.getElementsByClassName(removeClickedStyle);
+        for (var i = removeClickedNodes.length - 1; i >= 0; i--) {
+          var classList = removeClickedNodes[i].classList;
+          classList.remove(removeClickedStyle);
+        }
+      };
 
-        var nodeWithClassAttr = function (node) {
-          if (node.hasAttribute("class") && node.getAttribute("class") != "") {
-            return node;
-          } else {
-            return nodeWithClassAttr(node.parentElement);
-          }
-        };
+      var nodeWithClassAttr = function (node) {
+        if (node.hasAttribute("class") && node.getAttribute("class") != "") {
+          return node;
+        } else {
+          return nodeWithClassAttr(node.parentElement);
+        }
+      };
 
-        doc.documentElement.onmouseout = function (e) {
-          fnRemoveCss();
-        };
+      doc.documentElement.onmouseout = function (e) {
+        fnRemoveCss();
+      };
 
-        doc.documentElement.onmouseover = function (e) {
-          var x = e.clientX,
-              y = e.clientY,
-              elementSelected = doc.elementFromPoint(x, y);
-          var node = nodeWithClassAttr(elementSelected);
-          if (node.classList.contains(clickedStyle)) {
-            node.classList.add(removeClickedStyle);
-          } else {
-            node.classList.add(mouseOverStyle);
-          }
-        };
+      doc.documentElement.onmouseover = function (e) {
+        var x = e.clientX,
+            y = e.clientY,
+            elementSelected = doc.elementFromPoint(x, y);
+        var node = nodeWithClassAttr(elementSelected);
+        if (node.classList.contains(clickedStyle)) {
+          node.classList.add(removeClickedStyle);
+        } else {
+          node.classList.add(mouseOverStyle);
+        }
+      };
 
-        doc.documentElement.onclick = function (e) {
+      doc.documentElement.onclick = function (e) {
 
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
-          fnRemoveCss();
-          var x = e.clientX,
-              y = e.clientY,
-              elementSelected = doc.elementFromPoint(x, y);
-          console.log("> " + elementSelected.className);
-          var node = nodeWithClassAttr(elementSelected);
-          console.log("> " + node.className);
-          var className = node.className;
-          var classList = node.classList;
-          var isSelected = className.indexOf(clickedStyle) != -1 ? true : false;
-          var allNodes = this.getElementsByClassName(className);
+        fnRemoveCss();
+        var x = e.clientX,
+            y = e.clientY,
+            elementSelected = doc.elementFromPoint(x, y);
+        // console.log(">>"+elementSelected.className+"<<");
+        var node = nodeWithClassAttr(elementSelected);
+        // console.log(">"+node.className+"<");
+        var className = node.className;
+        var classList = node.classList;
+        var isSelected = className.indexOf(clickedStyle) != -1 ? true : false;
+        var allNodes = this.getElementsByClassName(className);
 
-          for (var i = allNodes.length - 1; i > -1; i--) {
-            var eachNode = allNodes[i];
-            var eachNodeClassList = eachNode.classList;
-            if (isSelected) {
-              eachNodeClassList.remove(clickedStyle);
-            } else {
-              eachNodeClassList.add(clickedStyle);
-            }
-          }
-
+        for (var i = allNodes.length - 1; i > -1; i--) {
+          var eachNode = allNodes[i];
+          var eachNodeClassList = eachNode.classList;
           if (isSelected) {
-            var newAttrName = node.className.replace(" ", "_");
-            _this.removeAttr(newAttrName);
+            eachNodeClassList.remove(clickedStyle);
           } else {
-            var cssNames = className.replace(clickedStyle, "");
-            var newAttrName = cssNames.replace(" ", "_");
-            _this.addAttr(newAttrName, cssNames);
+            eachNodeClassList.add(clickedStyle);
           }
-        };
-      }
+        }
+
+        if (isSelected) {
+          var newAttrName = node.className.replace(" ", "_");
+          _this.removeAttr(newAttrName);
+        } else {
+          var cssNames = className.replace(clickedStyle, "");
+          var newAttrName = cssNames.replace(" ", "_");
+          _this.addAttr(newAttrName, cssNames);
+        }
+      };
+    }
+  },
+
+  convertToJson: function () {
+    var _this = this;
+    var jsonData = {};
+    var urlToTag = $("#WebContent").attr("alt");
+    var toolAttrList = this.props.callbackParent();
+    var attrList = toolAttrList.getAttrList();
+    var componentToTag = [];
+    for (var i = 0; i < attrList.length; i++) {
+      var component = {};
+      component["name"] = attrList[i].props.name;
+      component["cssNames"] = attrList[i].props.cssNames;
+      componentToTag.push(component);
+    }
+    jsonData["urlToTag"] = urlToTag;
+    jsonData["componentToTag"] = componentToTag;
+
+    // TODO: change the strURL
+    var strUrl = "http://127.0.0.1:3800/results";
+
+    $.ajax({
+      url: strUrl,
+      type: "POST",
+      data: JSON.stringify(jsonData),
+      contentType: "application/json",
+      timeout: 10000,
+      success: function (data) {
+        _this.fetchResponse(data);
+      }.bind(this),
+      error: function (xhr, status, err) {
+        console.log(strUrl, status, err.toString());
+      }.bind(this)
     });
   },
   render: function () {
@@ -453,7 +504,7 @@ var ToolSettings = React.createClass({
       ),
       React.createElement(
         'button',
-        { type: 'button', className: 'btn btn-default col-xs-12 col-sd-12 col-md-12', 'aria-label': 'Left Align', onClick: this.extract },
+        { type: 'button', className: 'btn btn-default col-xs-12 col-sd-12 col-md-12', 'aria-label': 'Left Align', onClick: this.convertToJson },
         React.createElement('span', { className: 'glyphicon glyphicon-search', 'aria-hidden': 'true' }),
         ' Convert to JSON'
       )
@@ -464,13 +515,17 @@ var ToolSettings = React.createClass({
 var ToolContent = React.createClass({
   displayName: 'ToolContent',
 
+  getToolAttrList: function () {
+    var toolAttrList = this.refs.toolAttrList;
+    return toolAttrList;
+  },
   render: function () {
     var eventHub = this.props.glEventHub;
     return React.createElement(
       'div',
       null,
-      React.createElement(ToolSettings, { glEventHub: eventHub }),
-      React.createElement(ToolAttrList, { glEventHub: eventHub })
+      React.createElement(ToolSettings, { glEventHub: eventHub, ref: 'toolSettings', callbackParent: this.getToolAttrList }),
+      React.createElement(ToolAttrList, { glEventHub: eventHub, ref: 'toolAttrList' })
     );
   }
 });
@@ -478,6 +533,21 @@ var ToolContent = React.createClass({
 var JSONContent = React.createClass({
   displayName: 'JSONContent',
 
+  componentWillMount: function () {
+    this.props.glEventHub.on('alertRefreshJson', this.actionRefreshJson);
+  },
+  componentWillUnmount: function () {
+    this.props.glEventHub.off('alertRefreshJson', this.actionRefreshJson);
+  },
+  getInitialState: function () {
+    return { response: "" };
+  },
+  jsonToString: function (json) {
+    return JSON.stringify(json, undefined, 2);
+  },
+  actionRefreshJson: function (response) {
+    this.setState({ response: this.jsonToString(response) });
+  },
   formatJson: function (json) {
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -493,14 +563,9 @@ var JSONContent = React.createClass({
       } else if (/null/.test(match)) {
         cls = 'null';
       }
-      //return '<span class="' + cls + '">' + match + '</span>';
+      //return '<span>' + match + '</span>';
       return match;
     });
-  },
-  getInitialState: function () {
-    var obj = { a: 1, 'b': 'foo', c: [false, 'false', null, 'null', { d: { e: 1.3e5, f: '1.3e5' } }, { d: { e: 1.3e5, f: '1.3e5' } }, { d: { e: 1.3e5, f: '1.3e5' } }] };
-    var json = JSON.stringify(obj, undefined, 4);
-    return { payload: json };
   },
   render: function () {
     return (
@@ -508,7 +573,7 @@ var JSONContent = React.createClass({
       React.createElement(
         'pre',
         { name: 'JSONContent' },
-        this.formatJson(this.state.payload)
+        this.formatJson(this.state.response)
       )
     );
   }
