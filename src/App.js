@@ -77,12 +77,9 @@ var WebContent = React.createClass({
     },
     refresh: function( url ) {
       url = this.suggestUrl(url);
-      // if(this.state.url != url){
         this.setState({url: url});
-        // var urlPostFix = url.endsWith("/")? "" : "/";
         $("#WebContent").attr("src", this.state.hostname + "/?url=" + this.state.url ); //+ urlPostFix + "?_escaped_fragment_="); //need to polish url
         this.props.glEventHub.emit( 'alertRemoveAllAttr', ""); //load new page, remove all attributes
-      // }
     },
     suggestUrl: function(url){
       var prefix = "";
@@ -140,9 +137,6 @@ var ToolAttr = React.createClass({
         cssNames: this.props.cssNames
       };
   },
-  getState: function(){
-    return this.state;
-  },
   addToSelection: function(){
       // Change CSS of the Div in selection
       var node = ReactDOM.findDOMNode(this);
@@ -167,12 +161,13 @@ var ToolAttr = React.createClass({
     var selection = event.target.text;
     btnDropdown.html(selection + ' <span class="caret"></span>');
   },
-  setName: function(event){
-    this.state.name = event.target.value;
+  renameName: function(event){
+    var newAttrName = event.target.value;
+    this.state.name = newAttrName;
+    this.props.renameAttrName(this.state.keyIndex, newAttrName);
   },
   render: function(){
       var cssNames = this.state.cssNames.split(" ");
-
       return (
         <div className="row padding layer" name="divAttr" key={"divAttr"+this.state.keyIndex} onClick={this.addToSelection}>
           <div className="col-md-1 col-sm-1">
@@ -182,7 +177,7 @@ var ToolAttr = React.createClass({
             </button>
           </div>
           <div className="col-md-11 col-sm-11">
-            <input type="text" name="inputAttrName" className="maxWidth" key={"inputAttrName"+this.state.keyIndex} defaultValue={this.state.name} onChange={this.setName}/>
+            <input type="text" name="inputAttrName" className="maxWidth" key={"inputAttrName"+this.state.keyIndex} defaultValue={this.state.name} onChange={this.renameName}/>
           </div>
           <div className="col-md-12 col-sd-12 collapse" id={"cssSelector"+this.state.keyIndex+"Target"}>
             <div className="col-md-12 col-sd-12 well">
@@ -207,11 +202,12 @@ var ToolAttrList = React.createClass({
       var index=-1;
       return {
         selectedAttr: null,
-        attrList:[]
+        toolAttrs:[],
+        toolAttrNames:[]
       };
   },
-  getAttrList: function(){
-      return this.state.attrList;
+  getToolAttrs: function(){
+      return this.state.toolAttrs;
   },
   componentWillMount: function() {
       this.props.glEventHub.on( 'alertAddAttr', this.actionAddAttr );
@@ -236,10 +232,13 @@ var ToolAttrList = React.createClass({
       return lastElement.props.keyIndex;
     }
   },
+  renameAttrName: function(index, name){
+    this.state.toolAttrNames[index] = name;
+  },
   actionSelectAttr: function(index){
-    var attrList = this.state.attrList;
-    for(var i=0; i<attrList.length; i++){
-      var attr = attrList[i];
+    var toolAttrs = this.state.toolAttrs;
+    for(var i=0; i<toolAttrs.length; i++){
+      var attr = toolAttrs[i];
       if(attr.props.keyIndex == index){
         if(this.state.selectedAttr != attr){
           this.state.selectedAttr = attr; //select
@@ -251,21 +250,26 @@ var ToolAttrList = React.createClass({
   },
   actionAddAttr: function(attrName, cssNames) {
     var eventHub = this.props.glEventHub;
-    var attrList = this.state.attrList;
-    var nextKeyIndex = this.getLastKeyIndex(attrList)+1;
-    attrList.push(<ToolAttr name={attrName} cssNames={cssNames} key={nextKeyIndex} keyIndex={nextKeyIndex} glEventHub={eventHub} ref="toolAttr"/>);
-    this.setState({attrList: attrList});
+    var toolAttrs = this.state.toolAttrs;
+    var nextKeyIndex = this.getLastKeyIndex(toolAttrs)+1;
+    toolAttrs.push(<ToolAttr name={attrName} cssNames={cssNames} key={nextKeyIndex} keyIndex={nextKeyIndex} glEventHub={eventHub} renameAttrName={this.renameAttrName}/>);
+    this.setState({toolAttrs: toolAttrs});
+    this.state.toolAttrNames[nextKeyIndex] = attrName;
   },
   actionRemoveAttr: function (attrName){
-      var attrList = this.state.attrList;
-      var newAttrList = [];
-      for(var i=0; i<attrList.length; i++){
-        var attr = attrList[i];
+      var toolAttrs = this.state.toolAttrs;
+      var newToolAttrs = [];
+      for(var i=0; i<toolAttrs.length; i++){
+        var attr = toolAttrs[i];
         if(attr.props.name!=attrName){
-          newAttrList.push(attr);
+          newToolAttrs.push(attr);
+        }else{
+          var toolAttrNames = this.state.toolAttrNames;
+          toolAttrNames.splice(i,1);
+          this.state.toolAttrNames = toolAttrNames;
         }
       }
-      this.setState({attrList: newAttrList});
+      this.setState({toolAttrs: newToolAttrs});
   },
   actionRemoveSelectedAttr: function(){
       var selectedAttr = this.state.selectedAttr;
@@ -290,13 +294,14 @@ var ToolAttrList = React.createClass({
       var node = nodes[i];
       node.classList.remove(clickedStyle);
     }
-    var newAttrList = [];
-    this.setState({attrList: newAttrList});
+    var newToolAttrs = [];
+    this.setState({toolAttrs: newToolAttrs});
+    this.state.toolAttrNames = [];
   },
   render: function(){
-      var attrList = this.state.attrList;
+      var toolAttrs = this.state.toolAttrs;
       return (
-        <div>{attrList}</div>
+        <div>{toolAttrs}</div>
       )
   }
 });
@@ -318,8 +323,7 @@ var ToolSettings = React.createClass({
       this.props.glEventHub.emit( 'alertRefreshJson', response);
   },
   extract: function(){
-    var _this = this;
-    // $('#WebContent').load(function() {
+      var _this = this;
       var doc = null;
       var iframe = document.getElementById('WebContent');
       if (iframe.contentDocument) {
@@ -338,24 +342,6 @@ var ToolSettings = React.createClass({
         var clickedStyle = "tfClicked";
         var mouseOverStyle = "tfMouseover";
         var removeClickedStyle = "tfRemoveClicked";
-
-        // var fnRemoveLinkPropagation = function(){
-        //   // $('*').on('click', function(event){
-        //   //   event.preventDefault()
-        //   //   event.stopPropagation();
-        //   // });
-        //   var nodes = doc.getElementsByTagName('*');
-        //   for(var i=0; i<nodes.length; i++){
-        //     var node = nodes[i];
-        //     node.onclick = function(event){
-        //       //event.preventDefault();
-        //       event.stopPropagation();
-        //     }
-        //   }
-        // };
-        //
-        // // executes link propagation
-        // fnRemoveLinkPropagation();
 
         var fnRemoveCss = function(){
           var mouseOverNodes = doc.getElementsByClassName(mouseOverStyle);
@@ -400,9 +386,7 @@ var ToolSettings = React.createClass({
 
           fnRemoveCss();
           var x = e.clientX, y = e.clientY, elementSelected = doc.elementFromPoint(x, y);
-          // console.log(">>"+elementSelected.className+"<<");
           var node = nodeWithClassAttr(elementSelected);
-          // console.log(">"+node.className+"<");
           var className = node.className;
           var classList = node.classList;
           var isSelected = className.indexOf(clickedStyle) != -1? true: false;
@@ -435,12 +419,13 @@ var ToolSettings = React.createClass({
     var jsonData = {};
     var urlToTag = ($("#WebContent").attr("alt"));
     var toolAttrList = this.props.callbackParent();
-    var attrList = toolAttrList.getAttrList();
+    var toolAttrs = toolAttrList.getToolAttrs();
+    var toolAttrNames = toolAttrList.state.toolAttrNames;
     var componentToTag = [];
-    for(var i = 0; i< attrList.length; i++){
+    for(var i = 0; i< toolAttrs.length; i++){
       var component = {};
-      component["name"] = attrList[i].props.name;
-      component["cssNames"] = attrList[i].props.cssNames;
+      component["name"] = toolAttrNames[i];
+      component["cssNames"] = toolAttrs[i].props.cssNames;
       componentToTag.push(component);
     }
     jsonData["urlToTag"] = urlToTag;
